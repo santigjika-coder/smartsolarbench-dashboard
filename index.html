@@ -6,12 +6,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body {
+body{
   background:#0f172a;
   color:white;
   font-family:Arial;
-  margin:0;
-  padding:0;
   text-align:center;
 }
 
@@ -19,158 +17,109 @@ h1{
   margin:20px;
 }
 
-.container {
+.container{
   display:flex;
-  flex-wrap:wrap;
   justify-content:center;
+  flex-wrap:wrap;
   gap:20px;
 }
 
-.card {
+.card{
   background:#1e293b;
-  padding:15px;
+  padding:20px;
   border-radius:15px;
-  width:200px;
+  width:180px;
   box-shadow:0 0 15px rgba(0,0,0,0.5);
 }
 
 .value{
   font-size:28px;
   font-weight:bold;
-  margin:10px 0;
 }
 
 canvas{
   max-width:400px;
   max-height:250px;
-  margin:10px auto;
+  margin:20px;
 }
 </style>
 </head>
+
 <body>
 
-<h1>🌍 Smart Park Dashboard</h1>
+<h1>🌍 Smart Park Environmental Dashboard</h1>
 
 <div class="container">
-  <!-- Gauge cards -->
   <div class="card">
     <h3>🌡 Temperature</h3>
-    <canvas id="tempGauge"></canvas>
-    <div class="value" id="tempStatus">--</div>
+    <div class="value" id="temp">--</div>
   </div>
 
   <div class="card">
     <h3>💧 Humidity</h3>
-    <canvas id="humGauge"></canvas>
-    <div class="value" id="humStatus">--</div>
+    <div class="value" id="hum">--</div>
   </div>
 
   <div class="card">
     <h3>📊 Pressure</h3>
-    <canvas id="pressGauge"></canvas>
-    <div class="value" id="pressStatus">--</div>
+    <div class="value" id="press">--</div>
   </div>
 
   <div class="card">
     <h3>🧪 Gas</h3>
-    <canvas id="gasGauge"></canvas>
-    <div class="value" id="gasStatus">--</div>
+    <div class="value" id="gas">--</div>
   </div>
 </div>
 
-<!-- Graphs -->
-<canvas id="tempChart"></canvas>
-<canvas id="humChart"></canvas>
-<canvas id="pressChart"></canvas>
-<canvas id="gasChart"></canvas>
+<canvas id="mainChart"></canvas>
 
 <script>
-// Global variables për charts
-let tempChart, humChart, pressChart, gasChart;
-let tempGauge, humGauge, pressGauge, gasGauge;
+let chart;
 
 async function loadData(){
-  const timestamp = new Date().getTime();
-  const res = await fetch(`https://api.thingspeak.com/channels/3255086/feeds.json?results=20&_=${timestamp}`);
+  const res = await fetch("https://api.thingspeak.com/channels/3255086/feeds.json?results=20");
   const data = await res.json();
   const feeds = data.feeds;
 
   const labels = feeds.map(f => new Date(f.created_at).toLocaleTimeString());
-  const temp = feeds.map(f => parseFloat(f.field1));
-  const hum = feeds.map(f => parseFloat(f.field2));
-  const press = feeds.map(f => parseFloat(f.field3));
-  const gas = feeds.map(f => parseFloat(f.field4));
+  const temp = feeds.map(f => f.field1);
+  const hum = feeds.map(f => f.field2);
+  const press = feeds.map(f => f.field3);
+  const gas = feeds.map(f => f.field4);
 
-  const latestTemp = temp[temp.length-1];
-  const latestHum = hum[hum.length-1];
-  const latestPress = press[press.length-1];
-  const latestGas = gas[gas.length-1];
+  document.getElementById("temp").innerHTML = temp[temp.length-1] + " °C";
+  document.getElementById("hum").innerHTML = hum[hum.length-1] + " %";
+  document.getElementById("press").innerHTML = press[press.length-1] + " hPa";
+  document.getElementById("gas").innerHTML = gas[gas.length-1] + " kΩ";
 
-  // Status bazuar në limit
-  document.getElementById("tempStatus").innerHTML = latestTemp>30?"NXEHET":"OK";
-  document.getElementById("humStatus").innerHTML = latestHum>70?"LAGESHTE":"OK";
-  document.getElementById("pressStatus").innerHTML = latestPress>1015?"LARTE":"OK";
-  document.getElementById("gasStatus").innerHTML = latestGas<40?"AIR BAD":"OK";
+  if(chart) chart.destroy();
 
-  // Gauge style me doughnut chart
-  function createGauge(canvasId, value, max=100){
-    return new Chart(document.getElementById(canvasId), {
-      type:'doughnut',
-      data:{
-        datasets:[{
-          data:[value, max-value],
-          backgroundColor:[value>30?'red':'green','rgba(255,255,255,0.1)'],
-          borderWidth:0
-        }]
+  chart = new Chart(document.getElementById("mainChart"), {
+    type:"line",
+    data:{
+      labels:labels,
+      datasets:[
+        {label:"Temp °C", data:temp, borderColor:"red"},
+        {label:"Humidity %", data:hum, borderColor:"blue"},
+        {label:"Pressure hPa", data:press, borderColor:"orange"},
+        {label:"Gas kΩ", data:gas, borderColor:"green"}
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{labels:{color:"white"}}
       },
-      options:{
-        rotation:-90*Math.PI/180,
-        circumference:180*Math.PI/180,
-        cutout:'70%',
-        plugins:{legend:{display:false}, tooltip:{enabled:false}}
+      scales:{
+        x:{ticks:{color:"white"}},
+        y:{ticks:{color:"white"}}
       }
-    });
-  }
-
-  // Destroy dhe ridërgo gauges
-  if(tempGauge) tempGauge.destroy();
-  if(humGauge) humGauge.destroy();
-  if(pressGauge) pressGauge.destroy();
-  if(gasGauge) gasGauge.destroy();
-
-  tempGauge = createGauge('tempGauge', latestTemp, 50);
-  humGauge = createGauge('humGauge', latestHum, 100);
-  pressGauge = createGauge('pressGauge', latestPress, 1100);
-  gasGauge = createGauge('gasGauge', latestGas, 100);
-
-  // Graphs
-  function createLineChart(canvasId, dataArray, label, color){
-    return new Chart(document.getElementById(canvasId),{
-      type:'line',
-      data:{labels:labels,datasets:[{label:label,data:dataArray,borderColor:color,fill:false}]},
-      options:{
-        responsive:true,
-        plugins:{legend:{labels:{color:'white'}}},
-        scales:{x:{ticks:{color:'white'}},y:{ticks:{color:'white'}}}
-      }
-    });
-  }
-
-  if(tempChart) tempChart.destroy();
-  if(humChart) humChart.destroy();
-  if(pressChart) pressChart.destroy();
-  if(gasChart) gasChart.destroy();
-
-  tempChart = createLineChart('tempChart', temp, "Temperature °C", "red");
-  humChart = createLineChart('humChart', hum, "Humidity %", "blue");
-  pressChart = createLineChart('pressChart', press, "Pressure hPa", "orange");
-  gasChart = createLineChart('gasChart', gas, "Gas kΩ", "green");
+    }
+  });
 }
 
-// Load initial
 loadData();
 setInterval(loadData,15000);
-
 </script>
 
 </body>
