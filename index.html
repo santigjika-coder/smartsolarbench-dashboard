@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Solar Bench</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<h1>Solar Bench Dashboard</h1>
+
+<canvas id="tempChart" width="400" height="200"></canvas>
+<canvas id="humChart" width="400" height="200"></canvas>
+<!-- Shto më shumë canvas për fushat tjera -->
+
+<script>
+async function updateData() {
+  const res = await fetch('https://api.thingspeak.com/channels/3255086/feeds.json?results=20');
+  const data = await res.json();
+
+  const feeds = data.feeds;
+  const labels = feeds.map(f => f.created_at);
+
+  const temps = feeds.map(f => parseFloat(f.field1));
+  const hums = feeds.map(f => parseFloat(f.field2));
+  
+  // grafiku i temperaturës
+  new Chart(document.getElementById('tempChart'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Temperatura (°C)',
+        data: temps,
+        borderColor: 'red'
+      }]
+    }
+  });
+
+  // grafiku i lagështisë
+  new Chart(document.getElementById('humChart'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Lagështia (%)',
+        data: hums,
+        borderColor: 'blue'
+      }]
+    }
+  });
+}
+
+updateData();
+</script>
+
+</body>
+</html>
