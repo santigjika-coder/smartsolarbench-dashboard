@@ -1,56 +1,125 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Dashboard Solar Bench</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-<h1>Solar Bench Dashboard</h1>
+<meta charset="UTF-8">
+<title>Smart Park Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<canvas id="tempChart" width="400" height="200"></canvas>
-<canvas id="humChart" width="400" height="200"></canvas>
-<!-- Shto më shumë canvas për fushat tjera -->
+<style>
+body{
+  background:#0f172a;
+  color:white;
+  font-family:Arial;
+  text-align:center;
+}
+
+h1{
+  margin:20px;
+}
+
+.container{
+  display:flex;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:20px;
+}
+
+.card{
+  background:#1e293b;
+  padding:20px;
+  border-radius:15px;
+  width:180px;
+  box-shadow:0 0 15px rgba(0,0,0,0.5);
+}
+
+.value{
+  font-size:28px;
+  font-weight:bold;
+}
+
+canvas{
+  max-width:400px;
+  max-height:250px;
+  margin:20px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🌍 Smart Park Environmental Dashboard</h1>
+
+<div class="container">
+  <div class="card">
+    <h3>🌡 Temperature</h3>
+    <div class="value" id="temp">--</div>
+  </div>
+
+  <div class="card">
+    <h3>💧 Humidity</h3>
+    <div class="value" id="hum">--</div>
+  </div>
+
+  <div class="card">
+    <h3>📊 Pressure</h3>
+    <div class="value" id="press">--</div>
+  </div>
+
+  <div class="card">
+    <h3>🧪 Gas</h3>
+    <div class="value" id="gas">--</div>
+  </div>
+</div>
+
+<canvas id="mainChart"></canvas>
 
 <script>
-async function updateData() {
-  const res = await fetch('https://api.thingspeak.com/channels/3255086/feeds.json?results=20');
+let chart;
+
+async function loadData(){
+  const res = await fetch("https://api.thingspeak.com/channels/3255086/feeds.json?results=20");
   const data = await res.json();
-
   const feeds = data.feeds;
-  const labels = feeds.map(f => f.created_at);
 
-  const temps = feeds.map(f => parseFloat(f.field1));
-  const hums = feeds.map(f => parseFloat(f.field2));
-  
-  // grafiku i temperaturës
-  new Chart(document.getElementById('tempChart'), {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Temperatura (°C)',
-        data: temps,
-        borderColor: 'red'
-      }]
-    }
-  });
+  const labels = feeds.map(f => new Date(f.created_at).toLocaleTimeString());
+  const temp = feeds.map(f => f.field1);
+  const hum = feeds.map(f => f.field2);
+  const press = feeds.map(f => f.field3);
+  const gas = feeds.map(f => f.field4);
 
-  // grafiku i lagështisë
-  new Chart(document.getElementById('humChart'), {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Lagështia (%)',
-        data: hums,
-        borderColor: 'blue'
-      }]
+  document.getElementById("temp").innerHTML = temp[temp.length-1] + " °C";
+  document.getElementById("hum").innerHTML = hum[hum.length-1] + " %";
+  document.getElementById("press").innerHTML = press[press.length-1] + " hPa";
+  document.getElementById("gas").innerHTML = gas[gas.length-1] + " kΩ";
+
+  if(chart) chart.destroy();
+
+  chart = new Chart(document.getElementById("mainChart"), {
+    type:"line",
+    data:{
+      labels:labels,
+      datasets:[
+        {label:"Temp °C", data:temp, borderColor:"red"},
+        {label:"Humidity %", data:hum, borderColor:"blue"},
+        {label:"Pressure hPa", data:press, borderColor:"orange"},
+        {label:"Gas kΩ", data:gas, borderColor:"green"}
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{labels:{color:"white"}}
+      },
+      scales:{
+        x:{ticks:{color:"white"}},
+        y:{ticks:{color:"white"}}
+      }
     }
   });
 }
 
-updateData();
+loadData();
+setInterval(loadData,15000);
 </script>
 
 </body>
