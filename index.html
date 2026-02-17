@@ -2,9 +2,8 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Smart Park Gauge Dashboard</title>
+<title>Smart Park Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-gauge@1.0.0/dist/chartjs-gauge.min.js"></script>
 
 <style>
 body{
@@ -22,98 +21,105 @@ h1{
   display:flex;
   justify-content:center;
   flex-wrap:wrap;
-  gap:30px;
+  gap:20px;
 }
 
 .card{
   background:#1e293b;
   padding:20px;
   border-radius:15px;
-  width:200px;
-  height:250px;
+  width:180px;
   box-shadow:0 0 15px rgba(0,0,0,0.5);
 }
 
-.card h3{
-  margin-bottom:20px;
+.value{
+  font-size:28px;
+  font-weight:bold;
+}
+
+canvas{
+  max-width:400px;
+  max-height:250px;
+  margin:20px;
 }
 </style>
 </head>
+
 <body>
 
-<h1>🌍 Smart Park Gauge Dashboard</h1>
+<h1>🌍 Smart Park Environmental Dashboard</h1>
 
 <div class="container">
   <div class="card">
     <h3>🌡 Temperature</h3>
-    <canvas id="tempGauge"></canvas>
+    <div class="value" id="temp">--</div>
   </div>
 
   <div class="card">
     <h3>💧 Humidity</h3>
-    <canvas id="humGauge"></canvas>
+    <div class="value" id="hum">--</div>
   </div>
 
   <div class="card">
     <h3>📊 Pressure</h3>
-    <canvas id="pressGauge"></canvas>
+    <div class="value" id="press">--</div>
   </div>
 
   <div class="card">
     <h3>🧪 Gas</h3>
-    <canvas id="gasGauge"></canvas>
+    <div class="value" id="gas">--</div>
   </div>
 </div>
 
+<canvas id="mainChart"></canvas>
+
 <script>
-let tempChart, humChart, pressChart, gasChart;
+let chart;
 
-async function updateGauges(){
-  const res = await fetch("https://api.thingspeak.com/channels/3255086/feeds.json?results=1");
+async function loadData(){
+  const res = await fetch("https://api.thingspeak.com/channels/3255086/feeds.json?results=20");
   const data = await res.json();
-  const last = data.feeds[0];
+  const feeds = data.feeds;
 
-  const temp = parseFloat(last.field1);
-  const hum = parseFloat(last.field2);
-  const press = parseFloat(last.field3);
-  const gas = parseFloat(last.field4);
+  const labels = feeds.map(f => new Date(f.created_at).toLocaleTimeString());
+  const temp = feeds.map(f => f.field1);
+  const hum = feeds.map(f => f.field2);
+  const press = feeds.map(f => f.field3);
+  const gas = feeds.map(f => f.field4);
 
-  // Helper to create gauge
-  function createGauge(ctx, value, min, max, color){
-    return new Chart(ctx, {
-      type: 'gauge',
-      data: {datasets:[{value:value, minValue:min, data:[value], backgroundColor: color} ]},
-      options:{
-        responsive:true,
-        title:{display:false},
-        layout:{padding:{bottom:0}},
-        needle:{radiusPercentage:2, widthPercentage:3.2, lengthPercentage:80, color:'black'}
+  document.getElementById("temp").innerHTML = temp[temp.length-1] + " °C";
+  document.getElementById("hum").innerHTML = hum[hum.length-1] + " %";
+  document.getElementById("press").innerHTML = press[press.length-1] + " hPa";
+  document.getElementById("gas").innerHTML = gas[gas.length-1] + " kΩ";
+
+  if(chart) chart.destroy();
+
+  chart = new Chart(document.getElementById("mainChart"), {
+    type:"line",
+    data:{
+      labels:labels,
+      datasets:[
+        {label:"Temp °C", data:temp, borderColor:"red"},
+        {label:"Humidity %", data:hum, borderColor:"blue"},
+        {label:"Pressure hPa", data:press, borderColor:"orange"},
+        {label:"Gas kΩ", data:gas, borderColor:"green"}
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{labels:{color:"white"}}
+      },
+      scales:{
+        x:{ticks:{color:"white"}},
+        y:{ticks:{color:"white"}}
       }
-    });
-  }
-
-  // Temp Gauge
-  if(tempChart) tempChart.destroy();
-  tempChart = createGauge(document.getElementById('tempGauge'), temp, 0, 50, ['red']);
-
-  // Humidity Gauge
-  if(humChart) humChart.destroy();
-  humChart = createGauge(document.getElementById('humGauge'), hum, 0, 100, ['blue']);
-
-  // Pressure Gauge
-  if(pressChart) pressChart.destroy();
-  pressChart = createGauge(document.getElementById('pressGauge'), press, 900, 1100, ['orange']);
-
-  // Gas Gauge
-  if(gasChart) gasChart.destroy();
-  gasChart = createGauge(document.getElementById('gasGauge'), gas, 0, 100, ['green']);
+    }
+  });
 }
 
-// Load first time
-updateGauges();
-
-// Refresh every 15 sek
-setInterval(updateGauges,15000);
+loadData();
+setInterval(loadData,15000);
 </script>
 
 </body>
