@@ -1,80 +1,109 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Smart Park Dashboard</title>
+<title>🌍 Smart Solar Bench Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/chartjs-gauge"></script>
 <style>
-body{
-  background:#0f172a;
+body {
+  margin:0;
+  font-family: 'Arial', sans-serif;
+  background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
   color:white;
-  font-family:Arial;
-  text-align:center;
 }
 
-h1{
-  margin:20px;
+header{
+  text-align:center;
+  padding:15px;
+  font-size:2em;
+  font-weight:bold;
+  text-shadow: 2px 2px 4px black;
 }
 
 .container{
   display:flex;
-  justify-content:center;
   flex-wrap:wrap;
+  justify-content:center;
   gap:20px;
+  padding:20px;
 }
 
 .card{
-  background:#1e293b;
-  padding:20px;
+  background: rgba(0,0,0,0.6);
+  padding:15px;
   border-radius:15px;
-  width:180px;
-  box-shadow:0 0 15px rgba(0,0,0,0.5);
+  width:200px;
+  text-align:center;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  transition: transform 0.3s;
+}
+
+.card:hover{
+  transform: scale(1.05);
 }
 
 .value{
   font-size:28px;
   font-weight:bold;
+  margin:10px 0;
 }
 
 canvas{
   max-width:400px;
   max-height:250px;
-  margin:20px;
+  margin:20px auto;
+}
+
+footer{
+  text-align:center;
+  padding:15px;
+  font-size:0.9em;
+  color: #ccc;
+  background: rgba(0,0,0,0.5);
 }
 </style>
 </head>
-
 <body>
 
-<h1>🌍 Smart Park Environmental Dashboard</h1>
+<header>🌍 Smart Solar Bench Dashboard</header>
 
 <div class="container">
   <div class="card">
     <h3>🌡 Temperature</h3>
+    <canvas id="gaugeTemp"></canvas>
     <div class="value" id="temp">--</div>
   </div>
 
   <div class="card">
     <h3>💧 Humidity</h3>
+    <canvas id="gaugeHum"></canvas>
     <div class="value" id="hum">--</div>
   </div>
 
   <div class="card">
     <h3>📊 Pressure</h3>
+    <canvas id="gaugePress"></canvas>
     <div class="value" id="press">--</div>
   </div>
 
   <div class="card">
     <h3>🧪 Gas</h3>
+    <canvas id="gaugeGas"></canvas>
     <div class="value" id="gas">--</div>
   </div>
 </div>
 
-<canvas id="mainChart"></canvas>
+<div class="container">
+  <canvas id="chart1"></canvas>
+  <canvas id="chart2"></canvas>
+</div>
+
+<footer>© 2026 Smart Solar Bench Hub | Built by You</footer>
 
 <script>
-let chart;
+let chart1, chart2;
+let gaugeTemp, gaugeHum, gaugePress, gaugeGas;
 
 async function loadData(){
   const res = await fetch("https://api.thingspeak.com/channels/3255086/feeds.json?results=20");
@@ -82,40 +111,92 @@ async function loadData(){
   const feeds = data.feeds;
 
   const labels = feeds.map(f => new Date(f.created_at).toLocaleTimeString());
-  const temp = feeds.map(f => f.field1);
-  const hum = feeds.map(f => f.field2);
-  const press = feeds.map(f => f.field3);
-  const gas = feeds.map(f => f.field4);
+  const temp = feeds.map(f => parseFloat(f.field1));
+  const hum = feeds.map(f => parseFloat(f.field2));
+  const press = feeds.map(f => parseFloat(f.field3));
+  const gas = feeds.map(f => parseFloat(f.field4));
 
+  // Update card values
   document.getElementById("temp").innerHTML = temp[temp.length-1] + " °C";
   document.getElementById("hum").innerHTML = hum[hum.length-1] + " %";
   document.getElementById("press").innerHTML = press[press.length-1] + " hPa";
   document.getElementById("gas").innerHTML = gas[gas.length-1] + " kΩ";
 
-  if(chart) chart.destroy();
+  // Alarm example for temp>30°C
+  if(temp[temp.length-1]>30){
+    document.getElementById("temp").style.color="red";
+  }else{
+    document.getElementById("temp").style.color="white";
+  }
 
-  chart = new Chart(document.getElementById("mainChart"), {
+  // Destroy old charts
+  if(chart1) chart1.destroy();
+  if(chart2) chart2.destroy();
+  if(gaugeTemp) gaugeTemp.destroy();
+  if(gaugeHum) gaugeHum.destroy();
+  if(gaugePress) gaugePress.destroy();
+  if(gaugeGas) gaugeGas.destroy();
+
+  // Gauges
+  gaugeTemp = new Chart(document.getElementById("gaugeTemp"), {
+    type:'gauge',
+    data:{
+      datasets:[{value:temp[temp.length-1], min:0, max:50, backgroundColor:["green","yellow","red"]}]
+    },
+    options:{responsive:true}
+  });
+
+  gaugeHum = new Chart(document.getElementById("gaugeHum"), {
+    type:'gauge',
+    data:{datasets:[{value:hum[hum.length-1], min:0,max:100,backgroundColor:["red","yellow","green"]}]},
+    options:{responsive:true}
+  });
+
+  gaugePress = new Chart(document.getElementById("gaugePress"), {
+    type:'gauge',
+    data:{datasets:[{value:press[press.length-1], min:900,max:1100,backgroundColor:["red","yellow","green"]}]},
+    options:{responsive:true}
+  });
+
+  gaugeGas = new Chart(document.getElementById("gaugeGas"), {
+    type:'gauge',
+    data:{datasets:[{value:gas[gas.length-1], min:0,max:100,backgroundColor:["red","yellow","green"]}]},
+    options:{responsive:true}
+  });
+
+  // Trend charts
+  chart1 = new Chart(document.getElementById("chart1"), {
     type:"line",
     data:{
       labels:labels,
       datasets:[
         {label:"Temp °C", data:temp, borderColor:"red"},
-        {label:"Humidity %", data:hum, borderColor:"blue"},
+        {label:"Humidity %", data:hum, borderColor:"blue"}
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:{color:"white"}}},
+      scales:{x:{ticks:{color:"white"}},y:{ticks:{color:"white"}}}
+    }
+  });
+
+  chart2 = new Chart(document.getElementById("chart2"), {
+    type:"line",
+    data:{
+      labels:labels,
+      datasets:[
         {label:"Pressure hPa", data:press, borderColor:"orange"},
         {label:"Gas kΩ", data:gas, borderColor:"green"}
       ]
     },
     options:{
       responsive:true,
-      plugins:{
-        legend:{labels:{color:"white"}}
-      },
-      scales:{
-        x:{ticks:{color:"white"}},
-        y:{ticks:{color:"white"}}
-      }
+      plugins:{legend:{labels:{color:"white"}}},
+      scales:{x:{ticks:{color:"white"}},y:{ticks:{color:"white"}}}
     }
   });
+
 }
 
 loadData();
