@@ -5,18 +5,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.4/raphael-min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/justgage/1.2.9/justgage.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #eceff1; margin: 0; padding: 20px; }
-        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 30px; }
-        .gauge-card { background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 280px; }
-        h1 { color: #2c3e50; }
-        .status { font-size: 0.9em; color: #7f8c8d; margin-top: 20px; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #eceff1; padding: 20px; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+        .gauge-card { background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 250px; }
+        #debug-box { margin-top: 20px; font-size: 12px; color: #666; background: #ddd; padding: 10px; display: inline-block; border-radius: 5px; }
     </style>
 </head>
 <body>
 
     <h1>📊 Monitorimi Live - Parku Berat</h1>
-    <p>Të dhënat azhurnohen automatikisht çdo 15 sekonda.</p>
-
+    
     <div class="container">
         <div class="gauge-card"><div id="temp"></div></div>
         <div class="gauge-card"><div id="hum"></div></div>
@@ -24,39 +22,40 @@
         <div class="gauge-card"><div id="gas"></div></div>
     </div>
 
-    <p class="status" id="update-time">Duke pritur të dhënat...</p>
+    <p id="update-time">Duke u lidhur...</p>
+    
+    <div id="debug-box">Statusi: Duke pritur të dhënat...</div>
 
     <script>
-        // Krijimi i Gauges
-        var gTemp = new JustGage({ id: "temp", value: 0, min: -10, max: 50, title: "Temperatura (°C)", label: "Gradë", colorSteps: ['#a2d9ff', '#ffeb3b', '#ff5722'] });
-        var gHum = new JustGage({ id: "hum", value: 0, min: 0, max: 100, title: "Lagështia (%)", label: "%", colorSteps: ['#e1f5fe', '#03a9f4', '#01579b'] });
-        var gPres = new JustGage({ id: "pres", value: 0, min: 900, max: 1100, title: "Presioni (hPa)", label: "hPa", levelColors: ["#ff9800"] });
-        var gGas = new JustGage({ id: "gas", value: 0, min: 0, max: 500, title: "Cilësia e Ajrit (kΩ)", label: "Rezistenca", levelColors: ["#4caf50"] });
+        var gTemp = new JustGage({ id: "temp", value: 0, min: -10, max: 50, title: "Temperatura", label: "°C" });
+        var gHum = new JustGage({ id: "hum", value: 0, min: 0, max: 100, title: "Lagështia", label: "%" });
+        var gPres = new JustGage({ id: "pres", value: 0, min: 900, max: 1100, title: "Presioni", label: "hPa" });
+        var gGas = new JustGage({ id: "gas", value: 0, min: 0, max: 500, title: "Gazi", label: "kΩ" });
 
         function updateData() {
-            // Këtu marrim të dhënat nga kanali yt 3255086
-            fetch('https://api.thingspeak.com/channels/3255086/feeds.json?results=1')
+            // Shtojmë një "cache buster" (&_=@Date.now()) që ThingSpeak të mos na japë të dhëna të vjetra
+            fetch('https://api.thingspeak.com/channels/3255086/feeds.json?results=1&_=' + Date.now())
             .then(response => response.json())
             .then(data => {
                 const lastFeed = data.feeds[0];
-                
-                // Rifreskojmë vlerat
-                if(lastFeed.field1) gTemp.refresh(parseFloat(lastFeed.field1).toFixed(1));
-                if(lastFeed.field2) gHum.refresh(parseFloat(lastFeed.field2).toFixed(0));
-                if(lastFeed.field3) gPres.refresh(parseFloat(lastFeed.field3).toFixed(0));
-                if(lastFeed.field4) gGas.refresh(parseFloat(lastFeed.field4).toFixed(1));
+                console.log("Të dhënat e fundit:", lastFeed); // Shohim në console
 
-                document.getElementById('update-time').innerHTML = "Përditësimi i fundit: " + new Date(lastFeed.created_at).toLocaleString();
+                // Update Gauges - i kthejmë në numra me Number()
+                if(lastFeed.field1 !== null) gTemp.refresh(Number(lastFeed.field1));
+                if(lastFeed.field2 !== null) gHum.refresh(Number(lastFeed.field2));
+                if(lastFeed.field3 !== null) gPres.refresh(Number(lastFeed.field3));
+                if(lastFeed.field4 !== null) gGas.refresh(Number(lastFeed.field4));
+
+                document.getElementById('update-time').innerHTML = "Përditësimi: " + new Date(lastFeed.created_at).toLocaleString();
+                document.getElementById('debug-box').innerHTML = "Marrë nga ThingSpeak: F1:" + lastFeed.field1 + " F2:" + lastFeed.field2;
             })
             .catch(err => {
-                console.error("Gabim gjatë marrjes së të dhënave:", err);
-                document.getElementById('update-time').innerHTML = "Gabim: Nuk mund të lidhem me ThingSpeak.";
+                document.getElementById('debug-box').innerHTML = "Gabim: " + err;
             });
         }
 
-        // Fillo update-in
+        setInterval(updateData, 15000);
         updateData();
-        setInterval(updateData, 15000); 
     </script>
 </body>
 </html>
