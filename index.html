@@ -1,41 +1,62 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Smart Bench Berat - Live</title>
+    <title>Smart Bench Berat - Live Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.4/raphael-min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/justgage/1.2.9/justgage.min.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f4f7f6; }
-        .container { display: flex; flex-wrap: wrap; justify-content: center; }
-        .gauge { width: 300px; height: 240px; margin: 10px; background: white; border-radius: 10px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #eceff1; margin: 0; padding: 20px; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 30px; }
+        .gauge-card { background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 280px; }
+        h1 { color: #2c3e50; }
+        .status { font-size: 0.9em; color: #7f8c8d; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h1>Parku i Beratit - Live Stats</h1>
+
+    <h1>📊 Monitorimi Live - Parku Berat</h1>
+    <p>Të dhënat azhurnohen automatikisht çdo 15 sekonda.</p>
+
     <div class="container">
-        <div id="temp_gauge" class="gauge"></div>
-        <div id="hum_gauge" class="gauge"></div>
+        <div class="gauge-card"><div id="temp"></div></div>
+        <div class="gauge-card"><div id="hum"></div></div>
+        <div class="gauge-card"><div id="pres"></div></div>
+        <div class="gauge-card"><div id="gas"></div></div>
     </div>
 
-    <script>
-        // 1. Create the Gauges
-        var tGauge = new JustGage({ id: "temp_gauge", value: 0, min: 0, max: 50, title: "Temperatura (°C)" });
-        var hGauge = new JustGage({ id: "hum_gauge", value: 0, min: 0, max: 100, title: "Lageshtia (%)" });
+    <p class="status" id="update-time">Duke pritur të dhënat...</p>
 
-        // 2. Function to fetch data from ThingSpeak
+    <script>
+        // Krijimi i Gauges
+        var gTemp = new JustGage({ id: "temp", value: 0, min: -10, max: 50, title: "Temperatura (°C)", label: "Gradë", colorSteps: ['#a2d9ff', '#ffeb3b', '#ff5722'] });
+        var gHum = new JustGage({ id: "hum", value: 0, min: 0, max: 100, title: "Lagështia (%)", label: "%", colorSteps: ['#e1f5fe', '#03a9f4', '#01579b'] });
+        var gPres = new JustGage({ id: "pres", value: 0, min: 900, max: 1100, title: "Presioni (hPa)", label: "hPa", levelColors: ["#ff9800"] });
+        var gGas = new JustGage({ id: "gas", value: 0, min: 0, max: 500, title: "Cilësia e Ajrit (kΩ)", label: "Rezistenca", levelColors: ["#4caf50"] });
+
         function updateData() {
+            // Këtu marrim të dhënat nga kanali yt 3255086
             fetch('https://api.thingspeak.com/channels/3255086/feeds.json?results=1')
             .then(response => response.json())
             .then(data => {
                 const lastFeed = data.feeds[0];
-                tGauge.refresh(lastFeed.field1); // Update Temp
-                hGauge.refresh(lastFeed.field2); // Update Humidity
+                
+                // Rifreskojmë vlerat
+                if(lastFeed.field1) gTemp.refresh(parseFloat(lastFeed.field1).toFixed(1));
+                if(lastFeed.field2) gHum.refresh(parseFloat(lastFeed.field2).toFixed(0));
+                if(lastFeed.field3) gPres.refresh(parseFloat(lastFeed.field3).toFixed(0));
+                if(lastFeed.field4) gGas.refresh(parseFloat(lastFeed.field4).toFixed(1));
+
+                document.getElementById('update-time').innerHTML = "Përditësimi i fundit: " + new Date(lastFeed.created_at).toLocaleString();
+            })
+            .catch(err => {
+                console.error("Gabim gjatë marrjes së të dhënave:", err);
+                document.getElementById('update-time').innerHTML = "Gabim: Nuk mund të lidhem me ThingSpeak.";
             });
         }
 
-        // 3. Update every 15 seconds
-        setInterval(updateData, 15000);
-        updateData(); // Run once at start
+        // Fillo update-in
+        updateData();
+        setInterval(updateData, 15000); 
     </script>
 </body>
 </html>
