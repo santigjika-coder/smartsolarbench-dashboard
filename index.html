@@ -1,126 +1,41 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Smart Park Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-body{
-  background:#0f172a;
-  color:white;
-  font-family:Arial;
-  text-align:center;
-}
-
-h1{
-  margin:20px;
-}
-
-.container{
-  display:flex;
-  justify-content:center;
-  flex-wrap:wrap;
-  gap:20px;
-}
-
-.card{
-  background:#1e293b;
-  padding:20px;
-  border-radius:15px;
-  width:180px;
-  box-shadow:0 0 15px rgba(0,0,0,0.5);
-}
-
-.value{
-  font-size:28px;
-  font-weight:bold;
-}
-
-canvas{
-  max-width:400px;
-  max-height:250px;
-  margin:20px;
-}
-</style>
+    <title>Smart Bench Berat - Live</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.4/raphael-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/justgage/1.2.9/justgage.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f4f7f6; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; }
+        .gauge { width: 300px; height: 240px; margin: 10px; background: white; border-radius: 10px; }
+    </style>
 </head>
-
 <body>
+    <h1>Parku i Beratit - Live Stats</h1>
+    <div class="container">
+        <div id="temp_gauge" class="gauge"></div>
+        <div id="hum_gauge" class="gauge"></div>
+    </div>
 
-<h1>🌍 Smart Park Environmental Dashboard</h1>
+    <script>
+        // 1. Create the Gauges
+        var tGauge = new JustGage({ id: "temp_gauge", value: 0, min: 0, max: 50, title: "Temperatura (°C)" });
+        var hGauge = new JustGage({ id: "hum_gauge", value: 0, min: 0, max: 100, title: "Lageshtia (%)" });
 
-<div class="container">
-  <div class="card">
-    <h3>🌡 Temperature</h3>
-    <div class="value" id="temp">--</div>
-  </div>
+        // 2. Function to fetch data from ThingSpeak
+        function updateData() {
+            fetch('https://api.thingspeak.com/channels/3255086/feeds.json?results=1')
+            .then(response => response.json())
+            .then(data => {
+                const lastFeed = data.feeds[0];
+                tGauge.refresh(lastFeed.field1); // Update Temp
+                hGauge.refresh(lastFeed.field2); // Update Humidity
+            });
+        }
 
-  <div class="card">
-    <h3>💧 Humidity</h3>
-    <div class="value" id="hum">--</div>
-  </div>
-
-  <div class="card">
-    <h3>📊 Pressure</h3>
-    <div class="value" id="press">--</div>
-  </div>
-
-  <div class="card">
-    <h3>🧪 Gas</h3>
-    <div class="value" id="gas">--</div>
-  </div>
-</div>
-
-<canvas id="mainChart"></canvas>
-
-<script>
-let chart;
-
-async function loadData(){
-  const res = await fetch("https://api.thingspeak.com/channels/3255086/feeds.json?results=20");
-  const data = await res.json();
-  const feeds = data.feeds;
-
-  const labels = feeds.map(f => new Date(f.created_at).toLocaleTimeString());
-  const temp = feeds.map(f => f.field1);
-  const hum = feeds.map(f => f.field2);
-  const press = feeds.map(f => f.field3);
-  const gas = feeds.map(f => f.field4);
-
-  document.getElementById("temp").innerHTML = temp[temp.length-1] + " °C";
-  document.getElementById("hum").innerHTML = hum[hum.length-1] + " %";
-  document.getElementById("press").innerHTML = press[press.length-1] + " hPa";
-  document.getElementById("gas").innerHTML = gas[gas.length-1] + " kΩ";
-
-  if(chart) chart.destroy();
-
-  chart = new Chart(document.getElementById("mainChart"), {
-    type:"line",
-    data:{
-      labels:labels,
-      datasets:[
-        {label:"Temp °C", data:temp, borderColor:"red"},
-        {label:"Humidity %", data:hum, borderColor:"blue"},
-        {label:"Pressure hPa", data:press, borderColor:"orange"},
-        {label:"Gas kΩ", data:gas, borderColor:"green"}
-      ]
-    },
-    options:{
-      responsive:true,
-      plugins:{
-        legend:{labels:{color:"white"}}
-      },
-      scales:{
-        x:{ticks:{color:"white"}},
-        y:{ticks:{color:"white"}}
-      }
-    }
-  });
-}
-
-loadData();
-setInterval(loadData,15000);
-</script>
-
+        // 3. Update every 15 seconds
+        setInterval(updateData, 15000);
+        updateData(); // Run once at start
+    </script>
 </body>
 </html>
